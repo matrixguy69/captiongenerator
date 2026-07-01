@@ -37,14 +37,24 @@
     return `rgba(${r}, ${g}, ${b}, ${opacityPct / 100})`;
   }
 
-  function roundRectPath(c, x, y, w, h, r) {
-    const rr = Math.min(r, w / 2, h / 2);
+  // corners = { tl, tr, br, bl } — independent radius per corner, so pills
+  // that are touching (no gap) can have square inner edges and rounded outer ones
+  function roundRectCorners(c, x, y, w, h, corners) {
+    const max = Math.min(w / 2, h / 2);
+    const tl = Math.min(corners.tl, max);
+    const tr = Math.min(corners.tr, max);
+    const br = Math.min(corners.br, max);
+    const bl = Math.min(corners.bl, max);
     c.beginPath();
-    c.moveTo(x + rr, y);
-    c.arcTo(x + w, y, x + w, y + h, rr);
-    c.arcTo(x + w, y + h, x, y + h, rr);
-    c.arcTo(x, y + h, x, y, rr);
-    c.arcTo(x, y, x + w, y, rr);
+    c.moveTo(x + tl, y);
+    c.lineTo(x + w - tr, y);
+    c.arcTo(x + w, y, x + w, y + tr, tr);
+    c.lineTo(x + w, y + h - br);
+    c.arcTo(x + w, y + h, x + w - br, y + h, br);
+    c.lineTo(x + bl, y + h);
+    c.arcTo(x, y + h, x, y + h - bl, bl);
+    c.lineTo(x, y + tl);
+    c.arcTo(x, y, x + tl, y, tl);
     c.closePath();
   }
 
@@ -131,8 +141,9 @@
     let cursorY = anchorY - totalHeight / 2;
 
     const bgFill = hexToRgba(state.bgColor, state.bgOpacity);
+    const seamless = state.lineGap <= 0 && metrics.length > 1;
 
-    for (const m of metrics) {
+    metrics.forEach((m, i) => {
       const boxTop = cursorY;
       const boxCenterY = boxTop + m.boxH / 2;
 
@@ -142,8 +153,19 @@
       else boxLeft = anchorX + metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2 - m.boxW;
 
       if (m.line.trim() !== '') {
+        const isFirst = i === 0;
+        const isLast = i === metrics.length - 1;
+        const corners = seamless
+          ? {
+              tl: isFirst ? maxRadius : 0,
+              tr: isFirst ? maxRadius : 0,
+              br: isLast ? maxRadius : 0,
+              bl: isLast ? maxRadius : 0,
+            }
+          : { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
+
         ctx.fillStyle = bgFill;
-        roundRectPath(ctx, boxLeft, boxTop, m.boxW, m.boxH, maxRadius);
+        roundRectCorners(ctx, boxLeft, boxTop, m.boxW, m.boxH, corners);
         ctx.fill();
 
         ctx.fillStyle = state.textColor;
@@ -153,7 +175,7 @@
       }
 
       cursorY += m.boxH + state.lineGap;
-    }
+    });
   }
 
   // ---------- font loading ----------
@@ -185,7 +207,7 @@
   bindRange('cornerRadius', 'cornerRadius', (v) => (v >= 98 ? 'pill' : `${v}%`));
   bindRange('padX', 'padX', (v) => `${v}px`);
   bindRange('padY', 'padY', (v) => `${v}px`);
-  bindRange('lineGap', 'lineGap', (v) => `${v}px`);
+  bindRange('lineGap', 'lineGap', (v) => (v === 0 ? '0px (connected)' : `${v}px`));
   bindRange('posX', 'posX', (v) => `${v}%`);
   bindRange('posY', 'posY', (v) => `${v}%`);
   bindRange('wrapWidth', 'wrapWidth', (v) => `${v}%`);
