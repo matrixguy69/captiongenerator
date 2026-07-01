@@ -57,6 +57,58 @@
     c.closePath();
   }
 
+  // Traces the outline of a vertical stack of touching same-x-center boxes
+  // as a single polygon (clockwise), including the "step" vertices where
+  // width changes between consecutive boxes.
+  function buildStackOutline(boxes) {
+    const pts = [];
+    pts.push([boxes[0].left, boxes[0].top]);
+    pts.push([boxes[0].right, boxes[0].top]);
+    for (let i = 0; i < boxes.length; i++) {
+      pts.push([boxes[i].right, boxes[i].bottom]);
+      if (i < boxes.length - 1 && boxes[i].right !== boxes[i + 1].right) {
+        pts.push([boxes[i + 1].right, boxes[i].bottom]);
+      }
+    }
+    const last = boxes[boxes.length - 1];
+    pts.push([last.left, last.bottom]);
+    for (let i = boxes.length - 1; i >= 0; i--) {
+      pts.push([boxes[i].left, boxes[i].top]);
+      if (i > 0 && boxes[i].left !== boxes[i - 1].left) {
+        pts.push([boxes[i - 1].left, boxes[i].top]);
+      }
+    }
+    const deduped = [];
+    for (const p of pts) {
+      const last = deduped[deduped.length - 1];
+      if (!last || last[0] !== p[0] || last[1] !== p[1]) deduped.push(p);
+    }
+    if (deduped.length > 1) {
+      const f = deduped[0], l = deduped[deduped.length - 1];
+      if (f[0] === l[0] && f[1] === l[1]) deduped.pop();
+    }
+    return deduped;
+  }
+
+  // Fillets EVERY corner of an arbitrary polygon (convex bulges outward,
+  // concave "elbow" corners curve inward) — this is what makes a stack of
+  // different-width pills read as one continuous blended shape.
+  function roundedPolygonPath(c, pts, radius) {
+    const n = pts.length;
+    if (n < 3) return;
+    const dist = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const start = [(pts[n - 1][0] + pts[0][0]) / 2, (pts[n - 1][1] + pts[0][1]) / 2];
+    c.moveTo(start[0], start[1]);
+    for (let i = 0; i < n; i++) {
+      const prev = pts[(i - 1 + n) % n];
+      const curr = pts[i];
+      const next = pts[(i + 1) % n];
+      const r = Math.max(0, Math.min(radius, dist(prev, curr) / 2, dist(curr, next) / 2));
+      c.arcTo(curr[0], curr[1], next[0], next[1], r);
+    }
+    c.closePath();
+  }
+
   // measures text width including manual letter-spacing (canvas letterSpacing has patchy support)
   function measureWidth(c, text, spacing) {
     if (!spacing) return c.measureText(text).width;
