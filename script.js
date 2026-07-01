@@ -37,15 +37,14 @@
     return `rgba(${r}, ${g}, ${b}, ${opacityPct / 100})`;
   }
 
-  // corners = { tl, tr, br, bl } — independent radius per corner, so pills
-  // that are touching (no gap) can have square inner edges and rounded outer ones
-  function roundRectCorners(c, x, y, w, h, corners) {
+  // corners = { tl, tr, br, bl } — independent radius per corner.
+  // Appends a subpath to whatever path is currently open on c (caller does beginPath/fill).
+  function addPillSubpath(c, x, y, w, h, corners) {
     const max = Math.min(w / 2, h / 2);
     const tl = Math.min(corners.tl, max);
     const tr = Math.min(corners.tr, max);
     const br = Math.min(corners.br, max);
     const bl = Math.min(corners.bl, max);
-    c.beginPath();
     c.moveTo(x + tl, y);
     c.lineTo(x + w - tr, y);
     c.arcTo(x + w, y, x + w, y + tr, tr);
@@ -141,41 +140,37 @@
     let cursorY = anchorY - totalHeight / 2;
 
     const bgFill = hexToRgba(state.bgColor, state.bgOpacity);
-    const seamless = state.lineGap <= 0 && metrics.length > 1;
 
-    metrics.forEach((m, i) => {
+    // pass 1 — compute every box's position, then fill all pills as ONE
+    // combined path so touching/overlapping seams don't double up alpha
+    const boxes = metrics.map((m) => {
       const boxTop = cursorY;
-      const boxCenterY = boxTop + m.boxH / 2;
-
       let boxLeft;
       if (state.lineAlign === 'center') boxLeft = anchorX - m.boxW / 2;
       else if (state.lineAlign === 'left') boxLeft = anchorX - metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2;
       else boxLeft = anchorX + metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2 - m.boxW;
-
-      if (m.line.trim() !== '') {
-        const isFirst = i === 0;
-        const isLast = i === metrics.length - 1;
-        const corners = seamless
-          ? {
-              tl: isFirst ? maxRadius : 0,
-              tr: isFirst ? maxRadius : 0,
-              br: isLast ? maxRadius : 0,
-              bl: isLast ? maxRadius : 0,
-            }
-          : { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
-
-        ctx.fillStyle = bgFill;
-        roundRectCorners(ctx, boxLeft, boxTop, m.boxW, m.boxH, corners);
-        ctx.fill();
-
-        ctx.fillStyle = state.textColor;
-        ctx.font = fontSpec;
-        ctx.textBaseline = 'middle';
-        drawSpacedText(ctx, m.line, boxLeft + m.boxW / 2, boxCenterY + state.fontSize * 0.02, state.letterSpacing);
-      }
-
       cursorY += m.boxH + state.lineGap;
+      return { ...m, boxLeft, boxTop };
     });
+
+    ctx.fillStyle = bgFill;
+    ctx.beginPath();
+    for (const b of boxes) {
+      if (b.line.trim() === '') continue;
+      const corners = { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
+      addPillSubpath(ctx, b.boxLeft, b.boxTop, b.boxW, b.boxH, corners);
+    }
+    ctx.fill();
+
+    // pass 2 — text on top
+    ctx.fillStyle = state.textColor;
+    ctx.font = fontSpec;
+    ctx.textBaseline = 'middle';
+    for (const b of boxes) {
+      if (b.line.trim() === '') continue;
+      const boxCenterY = b.boxTop + b.boxH / 2;
+      drawSpacedText(ctx, b.line, b.boxLeft + b.boxW / 2, boxCenterY + state.fontSize * 0.02, state.letterSpacing);
+    }
   }
 
   // ---------- font loading ----------
