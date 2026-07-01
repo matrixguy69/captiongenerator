@@ -21,7 +21,7 @@
     cornerRadius: 100, // 0-100 scale, 100 = full pill
     padX: 22,
     padY: 12,
-    lineGap: 10,
+    lineGap: 0,
     posX: 50,
     posY: 80,
     canvasW: 1920,
@@ -128,10 +128,10 @@
     const lineHeight = state.fontSize * 1.28 + state.padY * 2;
     const maxRadius = state.cornerRadius / 100 * (lineHeight / 2);
 
-    // when the gap is near 0, nudge pills to overlap by ~1.5px instead of
-    // just touching — anti-aliasing renders each shape's edge independently,
-    // so two shapes that only *touch* can still show a faint hairline seam
-    const seamFudge = state.lineGap <= 4 ? 1.5 : 0;
+    // when the gap is set low (near "connected"), force a real overlap
+    // rather than a mere touch — this guarantees no visible seam regardless
+    // of anti-aliasing or how the canvas gets scaled for display
+    const seamFudge = state.lineGap <= 4 ? 5 : 0;
     const effectiveGap = state.lineGap - seamFudge;
 
     const metrics = lines.map((line) => {
