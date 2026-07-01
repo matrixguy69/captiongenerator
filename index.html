@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pill Captions — transparent caption generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=Poppins:wght@500;600;700;800;900&family=Montserrat:wght@500;600;700;800;900&family=Archivo+Black&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 40 24" width="34" height="20">
+        <rect x="1" y="1" width="38" height="22" rx="4" fill="none" stroke="var(--text-dim)" stroke-width="1.5"/>
+        <rect x="10" y="7" width="20" height="10" rx="5" fill="var(--accent)"/>
+      </svg>
+    </span>
+    <div class="brand-text">
+      <h1>Pill Captions</h1>
+      <p>tight background boxes, not Premiere's rectangle</p>
+    </div>
+  </div>
+  <button id="downloadBtn" class="btn btn-accent">Download PNG</button>
+</header>
+
+<main class="layout">
+
+  <!-- ==================== CONTROLS ==================== -->
+  <section class="panel controls" aria-label="Caption settings">
+
+    <div class="explainer">
+      <div class="explainer-item">
+        <svg viewBox="0 0 120 60" width="100%" height="52">
+          <rect x="4" y="4" width="112" height="52" rx="4" fill="var(--bg-2)" stroke="var(--border)"/>
+          <text x="60" y="34" text-anchor="middle" font-family="Inter" font-size="13" fill="var(--text-dim)">two line caption</text>
+        </svg>
+        <span>Premiere / Adobe</span>
+      </div>
+      <div class="explainer-arrow">→</div>
+      <div class="explainer-item">
+        <svg viewBox="0 0 120 60" width="100%" height="52">
+          <rect x="14" y="8" width="92" height="18" rx="9" fill="var(--accent)"/>
+          <rect x="24" y="30" width="72" height="18" rx="9" fill="var(--accent)"/>
+        </svg>
+        <span>Pill Captions</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <label class="group-label" for="captionText">Caption text</label>
+      <textarea id="captionText" rows="4" spellcheck="false">its made of a soft material
+that compresses around the knees</textarea>
+      <div class="row">
+        <label class="checkbox">
+          <input type="checkbox" id="autoWrap" checked>
+          <span>Auto-wrap long lines</span>
+        </label>
+        <div class="mini-field" id="wrapWidthField">
+          <label for="wrapWidth">Wrap width</label>
+          <input type="range" id="wrapWidth" min="30" max="100" value="82">
+          <span class="mini-value" id="wrapWidthVal">82%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Typography</span>
+      <div class="row two-col">
+        <div class="field">
+          <label for="fontFamily">Font</label>
+          <select id="fontFamily">
+            <option value="'Archivo Black', sans-serif">Archivo Black</option>
+            <option value="'Poppins', sans-serif" selected>Poppins</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="'Inter', sans-serif">Inter</option>
+            <option value="'Space Grotesk', sans-serif">Space Grotesk</option>
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+            <option value="Impact, 'Arial Narrow', sans-serif">Impact</option>
+            <option value="Georgia, serif">Georgia</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fontWeight">Weight</label>
+          <select id="fontWeight">
+            <option value="400">Regular</option>
+            <option value="500">Medium</option>
+            <option value="600">Semibold</option>
+            <option value="700" selected>Bold</option>
+            <option value="800">Extrabold</option>
+            <option value="900">Black</option>
+          </select>
+        </div>
+      </div>
+      <div class="row two-col">
+        <div class="field">
+          <label for="fontSize">Size <span class="mini-value" id="fontSizeVal">54px</span></label>
+          <input type="range" id="fontSize" min="16" max="160" value="54">
+        </div>
+        <div class="field">
+          <label for="letterSpacing">Letter spacing <span class="mini-value" id="letterSpacingVal">0px</span></label>
+          <input type="range" id="letterSpacing" min="-4" max="20" value="0">
+        </div>
+      </div>
+      <div class="field">
+        <label for="lineAlign">Line alignment</label>
+        <div class="segmented" id="lineAlign">
+          <button type="button" data-value="left">Left</button>
+          <button type="button" data-value="center" class="active">Center</button>
+          <button type="button" data-value="right">Right</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Pill style</span>
+      <div class="row two-col">
+        <div class="field">
+          <label for="textColor">Text color</label>
+          <div class="color-field">
+            <input type="color" id="textColor" value="#000000">
+            <input type="text" id="textColorHex" value="#000000" maxlength="7">
+          </div>
+        </div>
+        <div class="field">
+          <label for="bgColor">Pill color</label>
+          <div class="color-field">
+            <input type="color" id="bgColor" value="#ffffff">
+            <input type="text" id="bgColorHex" value="#ffffff" maxlength="7">
+          </div>
+        </div>
+      </div>
+      <div class="row two-col">
+        <div class="field">
+          <label for="bgOpacity">Pill opacity <span class="mini-value" id="bgOpacityVal">100%</span></label>
+          <input type="range" id="bgOpacity" min="0" max="100" value="100">
+        </div>
+        <div class="field">
+          <label for="cornerRadius">Corner radius <span class="mini-value" id="cornerRadiusVal">pill</span></label>
+          <input type="range" id="cornerRadius" min="0" max="100" value="100">
+        </div>
+      </div>
+      <div class="row two-col">
+        <div class="field">
+          <label for="padX">Horizontal padding <span class="mini-value" id="padXVal">22px</span></label>
+          <input type="range" id="padX" min="0" max="80" value="22">
+        </div>
+        <div class="field">
+          <label for="padY">Vertical padding <span class="mini-value" id="padYVal">12px</span></label>
+          <input type="range" id="padY" min="0" max="60" value="12">
+        </div>
+      </div>
+      <div class="field">
+        <label for="lineGap">Gap between lines <span class="mini-value" id="lineGapVal">10px</span></label>
+        <input type="range" id="lineGap" min="0" max="60" value="10">
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Position on frame</span>
+      <div class="row two-col">
+        <div class="field">
+          <label for="posX">Horizontal <span class="mini-value" id="posXVal">50%</span></label>
+          <input type="range" id="posX" min="0" max="100" value="50">
+        </div>
+        <div class="field">
+          <label for="posY">Vertical <span class="mini-value" id="posYVal">80%</span></label>
+          <input type="range" id="posY" min="0" max="100" value="80">
+        </div>
+      </div>
+      <div class="row presets">
+        <button type="button" class="chip" data-posx="50" data-posy="15">Top center</button>
+        <button type="button" class="chip" data-posx="50" data-posy="50">Middle</button>
+        <button type="button" class="chip" data-posx="50" data-posy="80">Lower third</button>
+        <button type="button" class="chip" data-posx="50" data-posy="92">Bottom</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Canvas resolution</span>
+      <div class="row presets">
+        <button type="button" class="chip res-chip active" data-w="1920" data-h="1080">1920×1080</button>
+        <button type="button" class="chip res-chip" data-w="1080" data-h="1920">1080×1920</button>
+        <button type="button" class="chip res-chip" data-w="1080" data-h="1080">1080×1080</button>
+      </div>
+      <div class="row two-col">
+        <div class="field">
+          <label for="canvasW">Width (px)</label>
+          <input type="number" id="canvasW" min="64" max="8000" value="1920">
+        </div>
+        <div class="field">
+          <label for="canvasH">Height (px)</label>
+          <input type="number" id="canvasH" min="64" max="8000" value="1080">
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="group-label">Reference frame <span class="hint">(for lining up only — never exported)</span></span>
+      <div class="row">
+        <input type="file" id="refImageInput" accept="image/*">
+        <button type="button" class="btn btn-ghost" id="clearRefBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <label class="group-label" for="fileName">File name</label>
+      <input type="text" id="fileName" value="caption">
+    </div>
+
+  </section>
+
+  <!-- ==================== PREVIEW ==================== -->
+  <section class="preview-pane" aria-label="Live preview">
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <img id="refImg" alt="" hidden>
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+    <p class="preview-note">Checkerboard = transparent. Exported PNG keeps transparency — only the pills and text are drawn.</p>
+  </section>
+
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
