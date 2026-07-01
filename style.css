@@ -1,325 +1,273 @@
-(() => {
-  const canvas = document.getElementById('canvas');
-  const ctx = canvas.getContext('2d');
-  const stage = document.getElementById('stage');
-  const refImg = document.getElementById('refImg');
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('fonts/ProximaNova-Regular.otf') format('opentype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('fonts/ProximaNova-Bold.otf') format('opentype');
+  font-weight: 700;
+}
+:root {
+  --bg: #121014;
+  --bg-1: #17151a;
+  --bg-2: #1e1b22;
+  --bg-3: #262229;
+  --border: #322d38;
+  --text: #f4f1ed;
+  --text-dim: #9b93a3;
+  --accent: #ff3d68;
+  --accent-dim: rgba(255, 61, 104, 0.16);
+  --radius: 10px;
+  font-size: 16px;
+}
 
-  const el = (id) => document.getElementById(id);
+* { box-sizing: border-box; }
 
-  const state = {
-    text: el('captionText').value,
-    autoWrap: true,
-    wrapWidth: 82,
-    fontFamily: "'Poppins', sans-serif",
-    fontWeight: 700,
-    fontSize: 54,
-    letterSpacing: 0,
-    lineAlign: 'center',
-    textColor: '#000000',
-    bgColor: '#ffffff',
-    bgOpacity: 100,
-    cornerRadius: 100, // 0-100 scale, 100 = full pill
-    padX: 22,
-    padY: 12,
-    lineGap: 10,
-    posX: 50,
-    posY: 80,
-    canvasW: 1920,
-    canvasH: 1080,
-  };
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-  // ---------- helpers ----------
-  function hexToRgba(hex, opacityPct) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.substring(0, 2), 16);
-    const g = parseInt(h.substring(2, 4), 16);
-    const b = parseInt(h.substring(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${opacityPct / 100})`;
-  }
+h1, h2 { font-family: 'Space Grotesk', sans-serif; margin: 0; }
 
-  // corners = { tl, tr, br, bl } — independent radius per corner, so pills
-  // that are touching (no gap) can have square inner edges and rounded outer ones
-  function roundRectCorners(c, x, y, w, h, corners) {
-    const max = Math.min(w / 2, h / 2);
-    const tl = Math.min(corners.tl, max);
-    const tr = Math.min(corners.tr, max);
-    const br = Math.min(corners.br, max);
-    const bl = Math.min(corners.bl, max);
-    c.beginPath();
-    c.moveTo(x + tl, y);
-    c.lineTo(x + w - tr, y);
-    c.arcTo(x + w, y, x + w, y + tr, tr);
-    c.lineTo(x + w, y + h - br);
-    c.arcTo(x + w, y + h, x + w - br, y + h, br);
-    c.lineTo(x + bl, y + h);
-    c.arcTo(x, y + h, x, y + h - bl, bl);
-    c.lineTo(x, y + tl);
-    c.arcTo(x, y, x + tl, y, tl);
-    c.closePath();
-  }
+/* ---------- topbar ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-mark { display: flex; }
+.brand-text h1 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+.brand-text p { margin: 2px 0 0; font-size: 12.5px; color: var(--text-dim); }
 
-  // measures text width including manual letter-spacing (canvas letterSpacing has patchy support)
-  function measureWidth(c, text, spacing) {
-    if (!spacing) return c.measureText(text).width;
-    let w = 0;
-    for (const ch of text) w += c.measureText(ch).width + spacing;
-    return w - spacing;
-  }
+.btn {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn:hover { background: var(--bg-3); }
+.btn:active { transform: scale(0.97); }
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a0812;
+}
+.btn-accent:hover { background: #ff5a80; }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-dim);
+  padding: 8px 14px;
+  font-size: 13px;
+}
 
-  function drawSpacedText(c, text, cx, cy, spacing, align) {
-    if (!spacing) {
-      c.textAlign = 'center';
-      c.fillText(text, cx, cy);
-      return;
-    }
-    const totalWidth = measureWidth(c, text, spacing);
-    let startX = cx - totalWidth / 2;
-    c.textAlign = 'left';
-    for (const ch of text) {
-      const w = c.measureText(ch).width;
-      c.fillText(ch, startX, cy);
-      startX += w + spacing;
-    }
-  }
+/* ---------- layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  min-height: calc(100vh - 61px);
+}
 
-  function wrapLine(c, paragraph, maxWidth, spacing) {
-    const words = paragraph.split(' ');
-    const lines = [];
-    let current = '';
-    for (const word of words) {
-      const test = current ? current + ' ' + word : word;
-      if (measureWidth(c, test, spacing) > maxWidth && current) {
-        lines.push(current);
-        current = word;
-      } else {
-        current = test;
-      }
-    }
-    if (current) lines.push(current);
-    return lines;
-  }
+.panel.controls {
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  max-height: calc(100vh - 61px);
+  background: var(--bg-1);
+}
 
-  function getLines() {
-    const paragraphs = state.text.split('\n');
-    const fontSpec = `${state.fontWeight} ${state.fontSize}px ${state.fontFamily}`;
-    ctx.font = fontSpec;
-    if (!state.autoWrap) return paragraphs;
-    const maxWidth = state.canvasW * (state.wrapWidth / 100);
-    let out = [];
-    for (const p of paragraphs) {
-      if (p.trim() === '') { out.push(''); continue; }
-      out = out.concat(wrapLine(ctx, p, maxWidth, state.letterSpacing));
-    }
-    return out;
-  }
+.preview-pane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  gap: 14px;
+}
 
-  // ---------- render ----------
-  function render() {
-    canvas.width = state.canvasW;
-    canvas.height = state.canvasH;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+/* ---------- explainer ---------- */
+.explainer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  margin-bottom: 22px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.explainer-item { flex: 1; text-align: center; }
+.explainer-item span { display: block; font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+.explainer-arrow { color: var(--accent); font-size: 18px; font-weight: 700; }
 
-    const lines = getLines().filter((l) => l !== undefined);
-    if (lines.length === 0 || lines.every((l) => l.trim() === '')) return;
+/* ---------- groups & fields ---------- */
+.group {
+  margin-bottom: 24px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--border);
+}
+.group:last-child { border-bottom: none; }
+.group-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.group-label .hint { text-transform: none; letter-spacing: 0; font-weight: 400; opacity: 0.75; }
 
-    const fontSpec = `${state.fontWeight} ${state.fontSize}px ${state.fontFamily}`;
-    ctx.font = fontSpec;
-    ctx.textBaseline = 'middle';
+textarea, select, input[type="text"], input[type="number"] {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+}
+textarea { resize: vertical; line-height: 1.4; }
+textarea:focus, select:focus, input:focus { border-color: var(--accent); }
 
-    const lineHeight = state.fontSize * 1.28 + state.padY * 2;
-    const maxRadius = state.cornerRadius / 100 * (lineHeight / 2);
+.row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.row.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row.presets { flex-wrap: wrap; }
 
-    const metrics = lines.map((line) => {
-      const textW = measureWidth(ctx, line, state.letterSpacing);
-      return { line, textW, boxW: textW + state.padX * 2, boxH: lineHeight };
-    });
+.field label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.field { margin-top: 4px; }
 
-    const totalHeight = metrics.reduce((sum, m) => sum + m.boxH, 0) + state.lineGap * (metrics.length - 1);
+.mini-field { display: flex; align-items: center; gap: 8px; flex: 1; }
+.mini-field label { font-size: 12.5px; color: var(--text-dim); white-space: nowrap; }
+.mini-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    const anchorX = canvas.width * (state.posX / 100);
-    const anchorY = canvas.height * (state.posY / 100);
-    let cursorY = anchorY - totalHeight / 2;
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  height: 4px;
+  background: var(--bg-3);
+}
 
-    const bgFill = hexToRgba(state.bgColor, state.bgOpacity);
-    const seamless = state.lineGap <= 0 && metrics.length > 1;
+.checkbox { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text); cursor: pointer; }
+.checkbox input { accent-color: var(--accent); width: 16px; height: 16px; }
 
-    metrics.forEach((m, i) => {
-      const boxTop = cursorY;
-      const boxCenterY = boxTop + m.boxH / 2;
+.color-field { display: flex; gap: 8px; align-items: center; }
+.color-field input[type="color"] {
+  width: 38px; height: 38px; padding: 0; border: 1px solid var(--border);
+  border-radius: 8px; background: none; cursor: pointer;
+}
+.color-field input[type="text"] { flex: 1; text-transform: uppercase; }
 
-      let boxLeft;
-      if (state.lineAlign === 'center') boxLeft = anchorX - m.boxW / 2;
-      else if (state.lineAlign === 'left') boxLeft = anchorX - metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2;
-      else boxLeft = anchorX + metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2 - m.boxW;
+.segmented {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segmented button {
+  flex: 1;
+  padding: 8px 0;
+  background: var(--bg-2);
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+.segmented button:last-child { border-right: none; }
+.segmented button.active { background: var(--accent-dim); color: var(--accent); font-weight: 600; }
 
-      if (m.line.trim() !== '') {
-        const isFirst = i === 0;
-        const isLast = i === metrics.length - 1;
-        const corners = seamless
-          ? {
-              tl: isFirst ? maxRadius : 0,
-              tr: isFirst ? maxRadius : 0,
-              br: isLast ? maxRadius : 0,
-              bl: isLast ? maxRadius : 0,
-            }
-          : { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
+.chip {
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+.chip.active, .chip:hover { border-color: var(--accent); color: var(--text); }
+.chip.res-chip.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
 
-        ctx.fillStyle = bgFill;
-        roundRectCorners(ctx, boxLeft, boxTop, m.boxW, m.boxH, corners);
-        ctx.fill();
+input[type="file"] {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
 
-        ctx.fillStyle = state.textColor;
-        ctx.font = fontSpec;
-        ctx.textBaseline = 'middle';
-        drawSpacedText(ctx, m.line, boxLeft + m.boxW / 2, boxCenterY + state.fontSize * 0.02, state.letterSpacing);
-      }
+/* ---------- preview stage ---------- */
+.stage-wrap {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: center;
+}
+.stage {
+  position: relative;
+  width: 100%;
+  max-height: 70vh;
+  background-image:
+    linear-gradient(45deg, #2a2730 25%, transparent 25%),
+    linear-gradient(-45deg, #2a2730 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #2a2730 75%),
+    linear-gradient(-45deg, transparent 75%, #2a2730 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+  background-color: #1a171e;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+}
+#refImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+#canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.preview-note {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 500px;
+}
 
-      cursorY += m.boxH + state.lineGap;
-    });
-  }
-
-  // ---------- font loading ----------
-  async function ensureFontsLoaded() {
-    const spec = `${state.fontWeight} ${state.fontSize}px ${state.fontFamily}`;
-    try {
-      await document.fonts.load(spec, state.text || 'A');
-      await document.fonts.ready;
-    } catch (e) { /* system fonts don't need loading */ }
-    render();
-  }
-
-  // ---------- wiring ----------
-  function bindRange(id, key, formatter) {
-    const input = el(id);
-    const valSpan = el(id + 'Val');
-    const update = () => {
-      state[key] = Number(input.value);
-      if (valSpan) valSpan.textContent = formatter ? formatter(state[key]) : state[key];
-      render();
-    };
-    input.addEventListener('input', update);
-    update();
-  }
-
-  bindRange('fontSize', 'fontSize', (v) => `${v}px`);
-  bindRange('letterSpacing', 'letterSpacing', (v) => `${v}px`);
-  bindRange('bgOpacity', 'bgOpacity', (v) => `${v}%`);
-  bindRange('cornerRadius', 'cornerRadius', (v) => (v >= 98 ? 'pill' : `${v}%`));
-  bindRange('padX', 'padX', (v) => `${v}px`);
-  bindRange('padY', 'padY', (v) => `${v}px`);
-  bindRange('lineGap', 'lineGap', (v) => (v === 0 ? '0px (connected)' : `${v}px`));
-  bindRange('posX', 'posX', (v) => `${v}%`);
-  bindRange('posY', 'posY', (v) => `${v}%`);
-  bindRange('wrapWidth', 'wrapWidth', (v) => `${v}%`);
-
-  el('captionText').addEventListener('input', (e) => { state.text = e.target.value; render(); });
-
-  el('autoWrap').addEventListener('change', (e) => {
-    state.autoWrap = e.target.checked;
-    el('wrapWidthField').style.opacity = state.autoWrap ? '1' : '0.4';
-    el('wrapWidth').disabled = !state.autoWrap;
-    render();
-  });
-
-  el('fontFamily').addEventListener('change', (e) => { state.fontFamily = e.target.value; ensureFontsLoaded(); });
-  el('fontWeight').addEventListener('change', (e) => { state.fontWeight = Number(e.target.value); ensureFontsLoaded(); });
-
-  function syncColor(colorId, hexId, key) {
-    el(colorId).addEventListener('input', (e) => {
-      state[key] = e.target.value;
-      el(hexId).value = e.target.value;
-      render();
-    });
-    el(hexId).addEventListener('input', (e) => {
-      let v = e.target.value;
-      if (!v.startsWith('#')) v = '#' + v;
-      if (/^#[0-9a-fA-F]{6}$/.test(v)) {
-        state[key] = v;
-        el(colorId).value = v;
-        render();
-      }
-    });
-  }
-  syncColor('textColor', 'textColorHex', 'textColor');
-  syncColor('bgColor', 'bgColorHex', 'bgColor');
-
-  // line alignment segmented control
-  document.getElementById('lineAlign').addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    document.querySelectorAll('#lineAlign button').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    state.lineAlign = btn.dataset.value;
-    render();
-  });
-
-  // position presets
-  document.querySelectorAll('.row.presets .chip:not(.res-chip)').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      state.posX = Number(btn.dataset.posx);
-      state.posY = Number(btn.dataset.posy);
-      el('posX').value = state.posX;
-      el('posY').value = state.posY;
-      el('posXVal').textContent = `${state.posX}%`;
-      el('posYVal').textContent = `${state.posY}%`;
-      render();
-    });
-  });
-
-  // resolution presets
-  function setStageAspect() {
-    stage.style.aspectRatio = `${state.canvasW} / ${state.canvasH}`;
-  }
-  document.querySelectorAll('.res-chip').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.res-chip').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      state.canvasW = Number(btn.dataset.w);
-      state.canvasH = Number(btn.dataset.h);
-      el('canvasW').value = state.canvasW;
-      el('canvasH').value = state.canvasH;
-      setStageAspect();
-      render();
-    });
-  });
-  el('canvasW').addEventListener('input', (e) => {
-    state.canvasW = Math.max(64, Number(e.target.value) || 64);
-    document.querySelectorAll('.res-chip').forEach((b) => b.classList.remove('active'));
-    setStageAspect();
-    render();
-  });
-  el('canvasH').addEventListener('input', (e) => {
-    state.canvasH = Math.max(64, Number(e.target.value) || 64);
-    document.querySelectorAll('.res-chip').forEach((b) => b.classList.remove('active'));
-    setStageAspect();
-    render();
-  });
-
-  // reference image (positioning aid only, never exported)
-  el('refImageInput').addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    refImg.src = url;
-    refImg.hidden = false;
-  });
-  el('clearRefBtn').addEventListener('click', () => {
-    refImg.hidden = true;
-    refImg.src = '';
-    el('refImageInput').value = '';
-  });
-
-  // download
-  el('downloadBtn').addEventListener('click', () => {
-    render();
-    const name = (el('fileName').value || 'caption').trim().replace(/[^a-z0-9-_]+/gi, '_');
-    const link = document.createElement('a');
-    link.download = `${name}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  });
-
-  // init
-  setStageAspect();
-  ensureFontsLoaded();
-})();
+@media (max-width: 880px) {
+  .layout { grid-template-columns: 1fr; }
+  .panel.controls { max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+}
