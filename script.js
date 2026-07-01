@@ -128,12 +128,18 @@
     const lineHeight = state.fontSize * 1.28 + state.padY * 2;
     const maxRadius = state.cornerRadius / 100 * (lineHeight / 2);
 
+    // when the gap is near 0, nudge pills to overlap by ~1.5px instead of
+    // just touching — anti-aliasing renders each shape's edge independently,
+    // so two shapes that only *touch* can still show a faint hairline seam
+    const seamFudge = state.lineGap <= 4 ? 1.5 : 0;
+    const effectiveGap = state.lineGap - seamFudge;
+
     const metrics = lines.map((line) => {
       const textW = measureWidth(ctx, line, state.letterSpacing);
       return { line, textW, boxW: textW + state.padX * 2, boxH: lineHeight };
     });
 
-    const totalHeight = metrics.reduce((sum, m) => sum + m.boxH, 0) + state.lineGap * (metrics.length - 1);
+    const totalHeight = metrics.reduce((sum, m) => sum + m.boxH, 0) + effectiveGap * (metrics.length - 1);
 
     const anchorX = canvas.width * (state.posX / 100);
     const anchorY = canvas.height * (state.posY / 100);
@@ -149,7 +155,7 @@
       if (state.lineAlign === 'center') boxLeft = anchorX - m.boxW / 2;
       else if (state.lineAlign === 'left') boxLeft = anchorX - metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2;
       else boxLeft = anchorX + metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2 - m.boxW;
-      cursorY += m.boxH + state.lineGap;
+      cursorY += m.boxH + effectiveGap;
       return { ...m, boxLeft, boxTop };
     });
 
