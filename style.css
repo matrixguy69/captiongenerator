@@ -1,3 +1,8 @@
+@font-face {
+  font-family: 'Proxima Nova';
+  src: url('fonts/ProximaNova-Regular.otf') format('opentype');
+  font-weight: 400;
+}
 :root {
   --bg: #121014;
   --bg-1: #17151a;
