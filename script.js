@@ -2,6 +2,7 @@
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const stage = document.getElementById('stage');
+  const stageWrap = document.querySelector('.stage-wrap');
   const refImg = document.getElementById('refImg');
 
   const el = (id) => document.getElementById(id);
@@ -180,18 +181,13 @@
     const lineHeight = state.fontSize * 1.28 + state.padY * 2;
     const maxRadius = state.cornerRadius / 100 * (lineHeight / 2);
 
-    // when the gap is set low (near "connected"), force a real overlap
-    // rather than a mere touch — this guarantees no visible seam regardless
-    // of anti-aliasing or how the canvas gets scaled for display
-    const seamFudge = state.lineGap <= 4 ? 5 : 0;
-    const effectiveGap = state.lineGap - seamFudge;
-
     const metrics = lines.map((line) => {
       const textW = measureWidth(ctx, line, state.letterSpacing);
       return { line, textW, boxW: textW + state.padX * 2, boxH: lineHeight };
     });
 
-    const totalHeight = metrics.reduce((sum, m) => sum + m.boxH, 0) + effectiveGap * (metrics.length - 1);
+    const gap = state.lineGap;
+    const totalHeight = metrics.reduce((sum, m) => sum + m.boxH, 0) + gap * (metrics.length - 1);
 
     const anchorX = canvas.width * (state.posX / 100);
     const anchorY = canvas.height * (state.posY / 100);
@@ -199,24 +195,41 @@
 
     const bgFill = hexToRgba(state.bgColor, state.bgOpacity);
 
-    // pass 1 — compute every box's position, then fill all pills as ONE
-    // combined path so touching/overlapping seams don't double up alpha
+    const widest = metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0);
     const boxes = metrics.map((m) => {
       const boxTop = cursorY;
       let boxLeft;
       if (state.lineAlign === 'center') boxLeft = anchorX - m.boxW / 2;
-      else if (state.lineAlign === 'left') boxLeft = anchorX - metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2;
-      else boxLeft = anchorX + metrics.reduce((mx, mm) => Math.max(mx, mm.boxW), 0) / 2 - m.boxW;
-      cursorY += m.boxH + effectiveGap;
-      return { ...m, boxLeft, boxTop };
+      else if (state.lineAlign === 'left') boxLeft = anchorX - widest / 2;
+      else boxLeft = anchorX + widest / 2 - m.boxW;
+      cursorY += m.boxH + gap;
+      return {
+        ...m,
+        boxLeft,
+        boxTop,
+        left: boxLeft,
+        right: boxLeft + m.boxW,
+        top: boxTop,
+        bottom: boxTop + m.boxH,
+      };
     });
+
+    const visibleBoxes = boxes.filter((b) => b.line.trim() !== '');
+    // lines are touching (gap === 0) AND there's more than one visible line
+    // → merge them into one continuous outline so the corner where the
+    // width changes gets a real blended fillet instead of two separate pills
+    const canFuse = gap === 0 && visibleBoxes.length > 1;
 
     ctx.fillStyle = bgFill;
     ctx.beginPath();
-    for (const b of boxes) {
-      if (b.line.trim() === '') continue;
-      const corners = { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
-      addPillSubpath(ctx, b.boxLeft, b.boxTop, b.boxW, b.boxH, corners);
+    if (canFuse) {
+      const outline = buildStackOutline(visibleBoxes);
+      roundedPolygonPath(ctx, outline, maxRadius);
+    } else {
+      for (const b of visibleBoxes) {
+        const corners = { tl: maxRadius, tr: maxRadius, br: maxRadius, bl: maxRadius };
+        addPillSubpath(ctx, b.boxLeft, b.boxTop, b.boxW, b.boxH, corners);
+      }
     }
     ctx.fill();
 
@@ -224,8 +237,7 @@
     ctx.fillStyle = state.textColor;
     ctx.font = fontSpec;
     ctx.textBaseline = 'middle';
-    for (const b of boxes) {
-      if (b.line.trim() === '') continue;
+    for (const b of visibleBoxes) {
       const boxCenterY = b.boxTop + b.boxH / 2;
       drawSpacedText(ctx, b.line, b.boxLeft + b.boxW / 2, boxCenterY + state.fontSize * 0.02, state.letterSpacing);
     }
@@ -321,7 +333,17 @@
 
   // resolution presets
   function setStageAspect() {
-    stage.style.aspectRatio = `${state.canvasW} / ${state.canvasH}`;
+    const maxW = stageWrap.clientWidth || 900;
+    const maxH = window.innerHeight * 0.7;
+    const ratio = state.canvasW / state.canvasH;
+    let w = maxW;
+    let h = w / ratio;
+    if (h > maxH) {
+      h = maxH;
+      w = h * ratio;
+    }
+    stage.style.width = `${w}px`;
+    stage.style.height = `${h}px`;
   }
   document.querySelectorAll('.res-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -371,6 +393,8 @@
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
+
+  window.addEventListener('resize', setStageAspect);
 
   // init
   setStageAspect();
